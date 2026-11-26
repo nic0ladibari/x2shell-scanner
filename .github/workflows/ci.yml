@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Pin to the repo's rust-toolchain.toml channel so rustfmt/clippy land on
+      # the toolchain cargo actually uses (the pin would otherwise shadow a
+      # `@stable` install, leaving `cargo fmt` without rustfmt).
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatting
+        run: cargo fmt --all --check
+
+      - name: No placeholder/sentinel in shipped payloads
+        run: |
+          if grep -RInE 'PLACEHOLDER|SENTINEL|FIXME|TODO' \
+               src/php/payload.rs src/node/stages.rs src/react/payload.rs; then
+            echo "::error::a placeholder/sentinel marker remains in a shipped probe"
+            exit 1
+          fi
+
+      - name: Clippy (default)
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Clippy (active-confirm)
+        run: cargo clippy --all-targets --locked --features active-confirm -- -D warnings
+
+      - name: Tests (default)
+        run: cargo test --locked
+      - name: Tests (active-confirm)
+        run: cargo test --locked --features active-confirm
+
+      - name: Release build
+        run: cargo build --release --locked
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Check at the declared MSRV
+        run: cargo check --locked --all-targets

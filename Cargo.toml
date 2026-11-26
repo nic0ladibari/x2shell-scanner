@@ -1,0 +1,66 @@
+[package]
+name = "x2shell-scanner"
+version = "0.1.0"
+edition = "2021"
+# Transitive deps (time, icu via url/idna) require 1.88; verified with
+# `cargo +1.88 check --locked`.
+rust-version = "1.88"
+license = "MIT"
+description = "Defensive detection scanner for three disclosed web vulnerability classes (php/node/react)"
+
+[[bin]]
+name = "x2shell-scanner"
+path = "src/main.rs"
+
+[features]
+# Off by default: the distributed binary ships safe-check only. Enabling this
+# compiles the react active-confirmation path, which still requires the runtime
+# --i-am-authorized ack. It confirms via a benign reflected marker only (§15/§16).
+active-confirm = []
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+# async runtime
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util"] }
+async-trait = "0.1"
+# serialization / output
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# target parsing (handles IDNA + IPv6 bracketing)
+url = "2.5"
+percent-encoding = "2"
+# brotli encoding for the node detector's valid/control bodies
+brotli = "7"
+# raw HTTP/1.1 (byte-level: empty-vs-nonempty body, raw 5xx, resets, exact headers)
+hyper = { version = "1.5", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+# TLS (verify-on by default; min 1.2, ALPN http/1.1)
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "0.26"
+# errors
+thiserror = "1.0"
+# logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# progress bar (bounded worker pool)
+indicatif = "0.17"
+# output formats
+csv = "1.3"
+# RFC3339 timestamps for run metadata
+time = { version = "0.3", features = ["formatting"] }
+# same-file identity for the --output clobber guard (stable on every platform,
+# incl. Windows hard links, which std's file-index APIs are unstable for)
+same-file = "1.0"
+# SOCKS5 proxy dialing (--proxy); HTTP-proxy CONNECT is done inline
+tokio-socks = "0.5"
+
+[dev-dependencies]
+# (mock-server + golden tests land here as detectors are built, §13)
+
+[profile.release]
+strip = true
+lto = true

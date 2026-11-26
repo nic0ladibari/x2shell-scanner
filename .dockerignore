@@ -1,0 +1,6 @@
+target
+.git
+lab
+*.md
+.DS_Store
+.github
